@@ -27,7 +27,7 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 async function checkCombination(combination) {
   const response = z.object({
     result: z.string(),
-    emoji: z.string(),
+    emoji: z.string().optional(),
     isNew: z.boolean(),
   });
 
