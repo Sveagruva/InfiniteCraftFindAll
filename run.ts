@@ -72,7 +72,7 @@ async function checkCombination(combination) {
 
 let currentCombinations = await getCombinations();
 
-while (currentCombinations.length > 0) {
+while (true) {
   for (const combination of currentCombinations) {
     await wait(delay);
     const result = await checkCombination(combination);
@@ -106,4 +106,9 @@ while (currentCombinations.length > 0) {
 
   console.log(`current elements: ${knownElements.size}`);
   console.log(`current combinations: ${checked}`);
+
+  if (checked === knownElements.size ** 2) {
+    console.log("all combinations checked");
+    break;
+  }
 }
