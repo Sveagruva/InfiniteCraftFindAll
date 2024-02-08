@@ -1,7 +1,14 @@
 import {combinations, db, elements, sqlite} from "./db";
-import {count, sql} from "drizzle-orm";
+import {count} from "drizzle-orm";
 import {z} from "zod";
 
+const limit = parseInt(process.env.LIMIT || "100");
+const doSkip = process.env.SKIP === 'true';
+const delay = parseInt(process.env.DELAY || "500");
+if (isNaN(limit))
+  throw new Error("invalid limit");
+if (isNaN(delay))
+  throw new Error("invalid delay");
 
 const dbElements = await db.select().from(elements);
 const knownElements = new Set(dbElements.map(e => e.id));
@@ -12,14 +19,26 @@ type combination = {
 }
 
 async function getCombinations() {
-  const combinations = await sqlite.query(`
-      select el1.id as first, el2.id as second from elements as el1
-                                     cross join elements as el2
-                                     LEFT JOIN combinations ON el1.id = combinations.firstElement AND combinations.secondElement = el2.id
-      WHERE combinations.firstElement IS NULL limit 500;
-  `).all();
+  let skip = 0;
+  if (doSkip) {
+    const [{count: checked}] = await db.select({
+      count: count()
+    }).from(combinations);
 
-  return combinations as combination[];
+    const total = knownElements.size ** 2;
+    const leftToCheck = total - checked;
+
+    skip = Math.floor(Math.random() * leftToCheck);
+  }
+
+  return await sqlite.query(`
+      select el1.id as first, el2.id as second
+      from elements as el1
+               cross join elements as el2
+               LEFT JOIN combinations ON el1.id = combinations.firstElement AND combinations.secondElement = el2.id
+      WHERE combinations.firstElement IS NULL
+      limit ${limit} offset ${skip};
+  `).all() as combination[];
 }
 
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -53,9 +72,9 @@ async function checkCombination(combination) {
 
 let currentCombinations = await getCombinations();
 
-while(currentCombinations.length > 0) {
+while (currentCombinations.length > 0) {
   for (const combination of currentCombinations) {
-    await wait(500);
+    await wait(delay);
     const result = await checkCombination(combination);
     if(result.isNew) {
       console.log(`new element found (${combination.first} + ${combination.second}) = ${result.result} ${result.emoji}`);
@@ -67,7 +86,7 @@ while(currentCombinations.length > 0) {
       result: result.result,
     });
 
-    if(knownElements.has(result.result))
+    if (knownElements.has(result.result))
       continue;
 
     await db.insert(elements).values({
