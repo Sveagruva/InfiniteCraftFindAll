@@ -13,6 +13,9 @@ if (isNaN(delay))
 
 const dbElements = await db.select().from(elements);
 const knownElements = new Set(dbElements.map(e => e.id));
+let [{count: checked}] = await db.select({
+  count: count()
+}).from(combinations);
 
 type combination = {
   first: string,
@@ -22,10 +25,6 @@ type combination = {
 async function getCombinations() {
   let skip = 0;
   if (doSkip) {
-    const [{count: checked}] = await db.select({
-      count: count()
-    }).from(combinations);
-
     const total = knownElements.size ** 2;
     const leftToCheck = total - checked;
 
@@ -89,6 +88,7 @@ while (currentCombinations.length > 0) {
       secondElement: combination.second,
       result: result.result,
     });
+    checked++;
 
     if (knownElements.has(result.result))
       continue;
@@ -104,9 +104,6 @@ while (currentCombinations.length > 0) {
   currentCombinations = await getCombinations();
 
 
-  const [{count: combsCount}] = await db.select({
-    count: count()
-  }).from(combinations);
   console.log(`current elements: ${knownElements.size}`);
-  console.log(`current combinations: ${combsCount}`);
+  console.log(`current combinations: ${checked}`);
 }
