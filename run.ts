@@ -76,8 +76,10 @@ while (currentCombinations.length > 0) {
   for (const combination of currentCombinations) {
     await wait(delay);
     const result = await checkCombination(combination);
-    if(result.isNew) {
-      console.log(`new element found (${combination.first} + ${combination.second}) = ${result.result} ${result.emoji}`);
+    if (result.isNew) {
+      console.log(`new element found ${combination.first} + ${combination.second} = ${result.result} ${result.emoji}`);
+    } else {
+      console.log(`combination ${combination.first} + ${combination.second} = ${result.result} ${result.emoji}`);
     }
 
     await db.insert(combinations).values({
@@ -97,6 +99,7 @@ while (currentCombinations.length > 0) {
     knownElements.add(result.result);
   }
 
+  currentCombinations = await getCombinations();
 
 
   const [{count: combsCount}] = await db.select({
@@ -104,5 +107,4 @@ while (currentCombinations.length > 0) {
   }).from(combinations);
   console.log(`current elements: ${knownElements.size}`);
   console.log(`current combinations: ${combsCount}`);
-  currentCombinations = await getCombinations();
 }
