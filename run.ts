@@ -1,6 +1,7 @@
 import {combinations, db, elements, sqlite} from "./db";
 import {count} from "drizzle-orm";
 import {z} from "zod";
+import fs from "node:fs";
 
 const limit = parseInt(process.env.LIMIT || "100");
 const doSkip = process.env.SKIP === 'true';
@@ -78,6 +79,7 @@ while (currentCombinations.length > 0) {
     const result = await checkCombination(combination);
     if (result.isNew) {
       console.log(`new element found ${combination.first} + ${combination.second} = ${result.result} ${result.emoji}`);
+      fs.appendFileSync("new_elements.txt", `${combination.first} + ${combination.second} = ${result.result} ${result.emoji}\n`);
     } else {
       console.log(`combination ${combination.first} + ${combination.second} = ${result.result} ${result.emoji}`);
     }
