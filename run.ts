@@ -73,11 +73,13 @@ while (true) {
   for (const combination of currentCombinations) {
     await wait(delay);
     const result = await checkCombination(combination);
+
+    let emoji = result.emoji === undefined ? "" : ` ${result.emoji}`;
     if (result.isNew) {
-      console.log(`new element found ${combination.first} + ${combination.second} = ${result.result} ${result.emoji}`);
-      fs.appendFileSync("new_elements.txt", `${combination.first} + ${combination.second} = ${result.result} ${result.emoji}\n`);
+      console.log(`new element found ${combination.first} + ${combination.second} = ${result.result}${emoji}`);
+      fs.appendFileSync("new_elements.txt", `${combination.first} + ${combination.second} = ${result.result}${emoji}\n`);
     } else {
-      console.log(`combination ${combination.first} + ${combination.second} = ${result.result} ${result.emoji}`);
+      console.log(`combination ${combination.first} + ${combination.second} = ${result.result}${emoji}`);
     }
 
     await db.insert(combinations).values({
