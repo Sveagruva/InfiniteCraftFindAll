@@ -4,7 +4,11 @@ import {z} from "zod";
 import fs from "node:fs";
 
 const limit = parseInt(process.env.LIMIT || "100");
-const doSkip = process.env.SKIP === 'true';
+const mode = z.enum([
+  'depth',
+  'random',
+  'alphabetical',
+]).parse(process.env.MODE);
 const delay = parseInt(process.env.DELAY || "500");
 if (isNaN(limit))
   throw new Error("invalid limit");
@@ -28,11 +32,25 @@ type combination = {
 async function getCombinations() {
   // using small random sample to allow random
   // combinations without joining all elements
+
+  let orderBy;
+  switch (mode) {
+    case 'depth':
+      orderBy = "ORDER BY depth";
+      break;
+    case 'alphabetical':
+      orderBy = "ORDER BY id";
+      break;
+    case 'random':
+      orderBy = "ORDER BY RANDOM()";
+      break;
+  }
+
   return await sqlite.query(`
     with small_selection as (
-      select * from elements ${doSkip ? "ORDER BY RANDOM()" : "ORDER BY depth"} limit 100
+      select * from elements ${orderBy} limit 100
     ), small_selection_2 as (
-        select * from elements ${doSkip ? "ORDER BY RANDOM()" : "ORDER BY depth"} limit 100
+        select * from elements ${orderBy} limit 100
     )
     select el1.id as first, el2.id as second
     from small_selection as el1
