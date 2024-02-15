@@ -3,17 +3,22 @@ import {count, eq} from "drizzle-orm";
 import {z} from "zod";
 import fs from "node:fs";
 
+const args = process.argv.slice(2);
+
 const limit = parseInt(process.env.LIMIT || "100");
 const mode = z.enum([
   'depth',
   'random',
   'alphabetical',
+  'specific',
 ]).parse(process.env.MODE);
 const delay = parseInt(process.env.DELAY || "500");
 if (isNaN(limit))
   throw new Error("invalid limit");
 if (isNaN(delay))
   throw new Error("invalid delay");
+if(mode === 'specific' && args.length !== 1)
+  throw new Error("specify one element to combine with");
 
 const elementsMap = (await db.select().from(elements)).reduce((acc, e) => {
   acc.set(e.id, e);
@@ -33,24 +38,29 @@ async function getCombinations() {
   // using small random sample to allow random
   // combinations without joining all elements
 
-  let orderBy;
+  let sharedCondition = "";
+  let firstCondition = "";
+  let selectionLimit = 100;
   switch (mode) {
     case 'depth':
-      orderBy = "ORDER BY depth";
+      sharedCondition = "ORDER BY depth";
       break;
     case 'alphabetical':
-      orderBy = "ORDER BY id";
+      sharedCondition = "ORDER BY id";
       break;
     case 'random':
-      orderBy = "ORDER BY RANDOM()";
+      sharedCondition = "ORDER BY RANDOM()";
       break;
+    case 'specific':
+      firstCondition = `WHERE id = '${args[0]}'`;
+      selectionLimit = knownElements.size;
   }
 
   return await sqlite.query(`
     with small_selection as (
-      select * from elements ${orderBy} limit 100
+      select * from elements ${firstCondition} ${sharedCondition} limit ${selectionLimit}
     ), small_selection_2 as (
-        select * from elements ${orderBy} limit 100
+        select * from elements ${sharedCondition} limit ${selectionLimit}
     )
     select el1.id as first, el2.id as second
     from small_selection as el1
@@ -58,7 +68,7 @@ async function getCombinations() {
              LEFT JOIN combinations ON el1.id = combinations.firstElement AND combinations.secondElement = el2.id
     WHERE combinations.firstElement IS NULL
     limit $limit;
-`).all({$limit: limit}) as combination[];
+`).all({$limit: mode === 'specific' ? knownElements.size : limit}) as combination[];
 }
 
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
