@@ -28,10 +28,12 @@ async function getCombinations() {
   return await sqlite.query(`
     with small_selection as (
       select * from elements ${doSkip ? "ORDER BY RANDOM()" : ""} limit 100
+    ), small_selection_2 as (
+        select * from elements ${doSkip ? "ORDER BY RANDOM()" : ""} limit 100
     )
     select el1.id as first, el2.id as second
     from small_selection as el1
-             cross join small_selection as el2
+             cross join small_selection_2 as el2
              LEFT JOIN combinations ON el1.id = combinations.firstElement AND combinations.secondElement = el2.id
     WHERE combinations.firstElement IS NULL
     limit $limit;
