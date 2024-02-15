@@ -23,22 +23,19 @@ type combination = {
 }
 
 async function getCombinations() {
-  let skip = 0;
-  if (doSkip) {
-    const total = knownElements.size ** 2;
-    const leftToCheck = total - checked;
-
-    skip = Math.floor(Math.random() * leftToCheck);
-  }
-
+  // using small random sample to allow random
+  // combinations without joining all elements
   return await sqlite.query(`
-      select el1.id as first, el2.id as second
-      from elements as el1
-               cross join elements as el2
-               LEFT JOIN combinations ON el1.id = combinations.firstElement AND combinations.secondElement = el2.id
-      WHERE combinations.firstElement IS NULL
-      limit ${limit} offset ${skip};
-  `).all() as combination[];
+    with small_selection as (
+      select * from elements ${doSkip ? "ORDER BY RANDOM()" : ""} limit 100
+    )
+    select el1.id as first, el2.id as second
+    from small_selection as el1
+             cross join small_selection as el2
+             LEFT JOIN combinations ON el1.id = combinations.firstElement AND combinations.secondElement = el2.id
+    WHERE combinations.firstElement IS NULL
+    limit $limit;
+`).all({$limit: limit}) as combination[];
 }
 
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
