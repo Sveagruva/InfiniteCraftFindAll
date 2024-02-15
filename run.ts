@@ -1,5 +1,5 @@
 import {combinations, db, elements, sqlite} from "./db";
-import {count} from "drizzle-orm";
+import {count, eq} from "drizzle-orm";
 import {z} from "zod";
 import fs from "node:fs";
 
@@ -11,8 +11,11 @@ if (isNaN(limit))
 if (isNaN(delay))
   throw new Error("invalid delay");
 
-const dbElements = await db.select().from(elements);
-const knownElements = new Set(dbElements.map(e => e.id));
+const elementsMap = (await db.select().from(elements)).reduce((acc, e) => {
+  acc.set(e.id, e);
+  return acc;
+}, new Map());
+const knownElements = new Set(elementsMap.keys());
 let [{count: checked}] = await db.select({
   count: count()
 }).from(combinations);
@@ -27,9 +30,9 @@ async function getCombinations() {
   // combinations without joining all elements
   return await sqlite.query(`
     with small_selection as (
-      select * from elements ${doSkip ? "ORDER BY RANDOM()" : ""} limit 100
+      select * from elements ${doSkip ? "ORDER BY RANDOM()" : "ORDER BY depth"} limit 100
     ), small_selection_2 as (
-        select * from elements ${doSkip ? "ORDER BY RANDOM()" : ""} limit 100
+        select * from elements ${doSkip ? "ORDER BY RANDOM()" : "ORDER BY depth"} limit 100
     )
     select el1.id as first, el2.id as second
     from small_selection as el1
@@ -74,6 +77,8 @@ let currentCombinations = await getCombinations();
 while (true) {
   for (const combination of currentCombinations) {
     await wait(delay);
+    const firstElement = elementsMap.get(combination.first);
+    const secondElement = elementsMap.get(combination.second);
     const result = await checkCombination(combination);
 
     let emoji = result.emoji === undefined ? "" : ` ${result.emoji}`;
@@ -91,15 +96,29 @@ while (true) {
     });
     checked++;
 
-    if (knownElements.has(result.result))
-      continue;
+    const combinationDepth = firstElement.depth > secondElement.depth ? firstElement.depth + 1 : secondElement.depth + 1;
 
-    await db.insert(elements).values({
+
+    if (knownElements.has(result.result)) {
+      if(combinationDepth < elementsMap.get(result.result).depth) {
+        elementsMap.get(result.result).depth = combinationDepth;
+        await db.update(elements)
+          .set({depth: combinationDepth})
+          .where(eq(elements.id, result.result));
+      }
+      continue;
+    }
+
+
+    const newElement = {
       id: result.result,
       emoji: result.emoji,
-    });
+      depth: combinationDepth
+    };
 
+    await db.insert(elements).values(newElement);
     knownElements.add(result.result);
+    elementsMap.set(result.result, newElement);
   }
 
   currentCombinations = await getCombinations();

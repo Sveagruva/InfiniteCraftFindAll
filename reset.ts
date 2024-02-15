@@ -5,7 +5,8 @@ db.run(sql`
     CREATE TABLE IF NOT EXISTS elements
     (
         id    TEXT PRIMARY KEY,
-        emoji TEXT
+        emoji TEXT,
+        depth INTEGER NOT NULL
     );
 `);
 
@@ -24,8 +25,8 @@ await db.delete(combinations).execute();
 await db.delete(elements).execute();
 
 await db.insert(elements).values([
-  {id: "Fire", emoji: "🔥"},
-  {id: "Water", emoji: "💧"},
-  {id: "Earth", emoji: "🌍"},
-  {id: "Wind", emoji: "🌬️"},
+  {id: "Fire", emoji: "🔥", depth: 0},
+  {id: "Water", emoji: "💧", depth: 0},
+  {id: "Earth", emoji: "🌍", depth: 0},
+  {id: "Wind", emoji: "🌬️", depth: 0},
 ]).execute();
