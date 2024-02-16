@@ -39,49 +39,27 @@ async function getCombinations() {
   // using small random sample to allow random
   // combinations without joining all elements
 
-  let sharedCondition = "";
-  let firstCondition = "";
-  let selectionLimit = 100;
-  switch (mode) {
-    case 'depth':
-      sharedCondition = "ORDER BY depth";
-      break;
-    case 'alphabetical':
-      sharedCondition = "ORDER BY id";
-      break;
-    case 'random':
-      sharedCondition = "ORDER BY RANDOM()";
-      break;
-    case 'specific':
-      firstCondition = `WHERE id = '${args[0]}'`;
-      selectionLimit = knownElements.size;
-  }
-
-  const runQuery = (offset: number) => {
-    return sqlite.query(`
+  return await sqlite.query(`
     with small_selection as (
-      select * from elements ${firstCondition} ${sharedCondition} limit ${selectionLimit} offset $offset
+      select * from elements
+          ${mode === 'specific' ? `WHERE id = '${args[0]}'` : ""}
+          ${mode === 'random' ? 'ORDER BY RANDOM() limit 100' : ""}
     ), small_selection_2 as (
-        select * from elements ${sharedCondition} limit ${selectionLimit} offset $offset
+        select * from elements ${mode === 'random' ? 'ORDER BY RANDOM() limit 100' : ""}
     )
     select el1.id as first, el2.id as second
     from small_selection as el1
              cross join small_selection_2 as el2
              LEFT JOIN combinations ON el1.id = combinations.firstElement AND combinations.secondElement = el2.id
     WHERE combinations.firstElement IS NULL
-    limit $limit;
-`).all({$limit: mode === 'specific' ? knownElements.size : limit, $offset: offset}) as Promise<combination[]>
-  }
-
-  let combs = await runQuery(globalOffset);
-  if(mode !== 'random' && combs.length === 0) {
-    combs = await runQuery(globalOffset + 1);
-    if(combs.length !== 0) {
-      globalOffset++;
+    ${
+      mode === 'depth' ? "ORDER BY el1.depth, el2.depth" : ""
     }
-  }
-
-  return combs;
+    ${
+      mode === 'alphabetical' ? "ORDER BY el1.id, el2.id" : ""
+    }
+    limit $limit;
+`).all({$limit: mode === 'specific' ? knownElements.size : limit}) as combination[];
 }
 
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
