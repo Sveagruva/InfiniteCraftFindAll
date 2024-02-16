@@ -5,6 +5,7 @@ import fs from "node:fs";
 
 const args = process.argv.slice(2);
 
+let globalOffset = 0;
 const limit = parseInt(process.env.LIMIT || "100");
 const mode = z.enum([
   'depth',
@@ -56,11 +57,12 @@ async function getCombinations() {
       selectionLimit = knownElements.size;
   }
 
-  return await sqlite.query(`
+  const runQuery = (offset: number) => {
+    return sqlite.query(`
     with small_selection as (
-      select * from elements ${firstCondition} ${sharedCondition} limit ${selectionLimit}
+      select * from elements ${firstCondition} ${sharedCondition} limit ${selectionLimit} offset $offset
     ), small_selection_2 as (
-        select * from elements ${sharedCondition} limit ${selectionLimit}
+        select * from elements ${sharedCondition} limit ${selectionLimit} offset $offset
     )
     select el1.id as first, el2.id as second
     from small_selection as el1
@@ -68,7 +70,18 @@ async function getCombinations() {
              LEFT JOIN combinations ON el1.id = combinations.firstElement AND combinations.secondElement = el2.id
     WHERE combinations.firstElement IS NULL
     limit $limit;
-`).all({$limit: mode === 'specific' ? knownElements.size : limit}) as combination[];
+`).all({$limit: mode === 'specific' ? knownElements.size : limit, $offset: offset}) as Promise<combination[]>
+  }
+
+  let combs = await runQuery(globalOffset);
+  if(mode !== 'random' && combs.length === 0) {
+    combs = await runQuery(globalOffset + 1);
+    if(combs.length !== 0) {
+      globalOffset++;
+    }
+  }
+
+  return combs;
 }
 
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
