@@ -47,7 +47,7 @@ async function getCombinations() {
     ), small_selection_2 as (
         select * from elements ${mode === 'random' ? 'ORDER BY RANDOM() limit 100' : ""}
     )
-    select el1.id as first, el2.id as second
+    select el1.id as first, el2.id as second, el1.depth + el2.depth as sum_depth 
     from small_selection as el1
              cross join small_selection_2 as el2
              LEFT JOIN combinations ON el1.id = combinations.firstElement AND combinations.secondElement = el2.id
@@ -56,7 +56,7 @@ async function getCombinations() {
       mode === 'depth' ? "ORDER BY el1.depth, el2.depth" : ""
     }
     ${
-      mode === 'alphabetical' ? "ORDER BY el1.id, el2.id" : ""
+      mode === 'alphabetical' ? "ORDER BY sum_depth" : ""
     }
     limit $limit;
 `).all({$limit: mode === 'specific' ? knownElements.size : limit}) as combination[];
