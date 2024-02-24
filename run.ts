@@ -76,6 +76,7 @@ async function checkCombination(combination) {
       "accept": "*/*",
       "accept-language": "en-US,en;q=0.9",
       "Referer": "https://neal.fun/infinite-craft/",
+      "Referrer-Policy": "strict-origin-when-cross-origin"
     },
     "body": null,
     "method": "GET"
